@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>經典貪吃蛇 - Classic Snake Game</title>
+  <style>
+    :root {
+      --bg-color: #1e1e2e;
+      --card-bg: #2b2b3d;
+      --accent-color: #2ed573;
+      --apple-color: #ff4757;
+      --text-color: #f1f2f6;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 { margin-top: 0; color: var(--accent-color); font-size: 2rem; text-shadow: 0 0 10px rgba(46,213,115,0.3); }
+
+    .game-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    /* 遊戲畫布卡片 */
+    .canvas-card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .scoreboard {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 12px;
+      font-weight: bold;
+      font-size: 1.1rem;
+      background: #181825;
+      padding: 10px 16px;
+      border-radius: 8px;
+    }
+
+    canvas {
+      background-color: #11111b;
+      border: 3px solid #313244;
+      border-radius: 10px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+      image-rendering: pixelated;
+    }
+
+    /* 儀表板與操作說明卡片 */
+    .info-card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      flex: 1;
+      min-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--accent-color);
+      border-bottom: 2px solid #313244;
+      padding-bottom: 5px;
+      margin-bottom: 8px;
+    }
+
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    button {
+      background-color: #45475a;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+      flex: 1;
+    }
+    button:hover { background-color: var(--accent-color); color: #111; }
+    button.danger { background-color: #ff4757; }
+    button.danger:hover { background-color: #ff6b81; color: white; }
+
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 8px;
+      background: #181825;
+      margin-bottom: 4px;
+      border-radius: 4px;
+    }
+
+    /* 觸控/手機虛擬 D-Pad */
+    .d-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 50px);
+      grid-template-rows: repeat(3, 50px);
+      gap: 5px;
+      margin-top: 15px;
+      justify-content: center;
+    }
+    .d-btn {
+      background: #313244;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .d-btn:active { background: var(--accent-color); color: #111; }
+    .btn-up { grid-column: 2; grid-row: 1; }
+    .btn-left { grid-column: 1; grid-row: 2; }
+    .btn-right { grid-column: 3; grid-row: 2; }
+    .btn-down { grid-column: 2; grid-row: 3; }
+  </style>
+</head>
+<body>
+
+  <h1>🐍 經典貪吃蛇 (Classic Snake)</h1>
+
+  <div class="game-container">
+    <!-- 左側：遊戲畫布 -->
+    <div class="canvas-card">
+      <div class="scoreboard">
+        <span>得分: <span id="current-score" style="color: #2ed573;">0</span></span>
+        <span>最高紀錄: <span id="high-score" style="color: #ffa502;">0</span></span>
+      </div>
+
+      <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+      <!-- 手機/觸控方向盤 -->
+      <div class="d-pad">
+        <button class="d-btn btn-up" onclick="setDirection('UP')">▲</button>
+        <button class="d-btn btn-left" onclick="setDirection('LEFT')">◄</button>
+        <button class="d-btn btn-right" onclick="setDirection('RIGHT')">►</button>
+        <button class="d-btn btn-down" onclick="setDirection('DOWN')">▼</button>
+      </div>
+    </div>
+
+    <!-- 右側：功能控制面板與操作說明 -->
+    <div class="info-card">
+      <div>
+        <div class="section-title">🎮 明確操作方式</div>
+        <ul style="padding-left: 20px; margin: 5px 0; line-height: 1.6; font-size: 0.95rem;">
+          <li><b>鍵盤方向鍵</b> 或 <b>W / A / S / D</b>：控制蛇移動方向</li>
+          <li><b>空白鍵 (Space)</b>：暫停 / 繼續遊戲</li>
+          <li><b>螢幕按鈕</b>：支援手機觸控卡片下方 D-Pad 操作</li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="section-title">⚡ 遊戲控制</div>
+        <div class="btn-group">
+          <button id="pause-btn" onclick="togglePause()">暫停 (Space)</button>
+          <button onclick="resetGame()">重新開始</button>
+          <button class="danger" onclick="clearData()">清除紀錄</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">🏆 戰績紀錄 (LocalStorage)</div>
+        <ul class="history-list" id="history-list">
+          <li class="history-item">尚無對局紀錄</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI 元件
+    const scoreEl = document.getElementById('current-score');
+    const highScoreEl = document.getElementById('high-score');
+    const historyListEl = document.getElementById('history-list');
+    const pauseBtn = document.getElementById('pause-btn');
+
+    // 遊戲參數
+    const GRID_SIZE = 20; // 20x20 像素為一格
+    const TILE_COUNT = canvas.width / GRID_SIZE; // 20x20 格
+    const STORAGE_KEY = 'SNAKE_GAME_DATA_V2';
+
+    // 遊戲狀態
+    let snake = [];
+    let food = { x: 0, y: 0 };
+    let dx = 1, dy = 0; // 預設向右
+    let nextDx = 1, nextDy = 0;
+    let score = 0;
+    let highScore = 0;
+    let history = [];
+    let gameInterval = null;
+    let isPaused = false;
+    let isGameOver = false;
+
+    // 初始化與資料載入
+    function init() {
+      loadLocalStorage();
+      document.addEventListener('keydown', handleKeyPress);
+      resetGame();
+    }
+
+    function loadLocalStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          highScore = data.highScore || 0;
+          history = data.history || [];
+        }
+      } catch (e) {
+        console.error("LocalStorage 解析失敗:", e);
+        highScore = 0;
+        history = [];
+      }
+      highScoreEl.innerText = highScore;
+      renderHistoryUI();
+    }
+
+    function saveLocalStorage() {
+      const data = {
+        highScore: highScore,
+        history: history.slice(0, 10) // 僅保留最近 10 筆
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function resetGame() {
+      snake = [
+        { x: 5, y: 10 },
+        { x: 4, y: 10 },
+        { x: 3, y: 10 }
+      ];
+      dx = 1; dy = 0;
+      nextDx = 1; nextDy = 0;
+      score = 0;
+      scoreEl.innerText = score;
+      isPaused = false;
+      isGameOver = false;
+      pauseBtn.innerText = '暫停 (Space)';
+      spawnFood();
+
+      if (gameInterval) clearInterval(gameInterval);
+      gameInterval = setInterval(gameLoop, 110); // 控制遊戲速度 (110ms)
+    }
+
+    function spawnFood() {
+      while (true) {
+        food.x = Math.floor(Math.random() * TILE_COUNT);
+        food.y = Math.floor(Math.random() * TILE_COUNT);
+        const onSnake = snake.some(s => s.x === food.x && s.y === food.y);
+        if (!onSnake) break;
+      }
+    }
+
+    function gameLoop() {
+      if (isPaused || isGameOver) return;
+
+      // 防止單個 Frame 內急速連續按鍵導致轉頭撞死
+      dx = nextDx;
+      dy = nextDy;
+
+      const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+      // 1. 撞牆檢測
+      if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
+        return handleGameOver();
+      }
+
+      // 2. 撞身體檢測
+      if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        return handleGameOver();
+      }
+
+      snake.unshift(head);
+
+      // 3. 吃蘋果檢測
+      if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        scoreEl.innerText = score;
+        if (score > highScore) {
+          highScore = score;
+          highScoreEl.innerText = highScore;
+        }
+        spawnFood();
+      } else {
+        snake.pop();
+      }
+
+      draw();
+    }
+
+    // 🎨 精細 Canvas 繪製 (含蛇頭眼睛、瞳孔、立體紅蘋果)
+    function draw() {
+      // 清空畫布
+      ctx.fillStyle = '#11111b';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 繪製網格背景 (微弱灰線)
+      ctx.strokeStyle = '#181825';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < TILE_COUNT; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * GRID_SIZE, 0);
+        ctx.lineTo(i * GRID_SIZE, canvas.height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, i * GRID_SIZE);
+        ctx.lineTo(canvas.width, i * GRID_SIZE);
+        ctx.stroke();
+      }
+
+      // 🍎 繪製立體紅蘋果 (紅果實 + 棕果蒂 + 綠葉)
+      drawApple(food.x, food.y);
+
+      // 🐍 繪製蛇身與蛇頭
+      snake.forEach((segment, index) => {
+        drawSnakePart(segment, index);
+      });
+    }
+
+    function drawApple(gx, gy) {
+      const cx = gx * GRID_SIZE + GRID_SIZE / 2;
+      const cy = gy * GRID_SIZE + GRID_SIZE / 2;
+      const radius = GRID_SIZE / 2 - 2;
+
+      // 蘋果主體 (紅色漸層)
+      const grad = ctx.createRadialGradient(cx - 2, cy - 2, 2, cx, cy, radius);
+      grad.addColorStop(0, '#ff6b6b');
+      grad.addColorStop(1, '#ff4757');
+      
+      ctx.beginPath();
+      ctx.arc(cx, cy + 1, radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // 果蒂 (棕色)
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - radius + 2);
+      ctx.quadraticCurveTo(cx + 2, cy - radius - 3, cx + 3, cy - radius - 5);
+      ctx.strokeStyle = '#70a1ff';
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 葉子 (鮮綠色)
+      ctx.beginPath();
+      ctx.ellipse(cx + 4, cy - radius - 2, 4, 2, Math.PI / 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#2ed573';
+      ctx.fill();
+    }
+
+    function drawSnakePart(segment, index) {
+      const cx = segment.x * GRID_SIZE + GRID_SIZE / 2;
+      const cy = segment.y * GRID_SIZE + GRID_SIZE / 2;
+      const radius = GRID_SIZE / 2 - 1;
+
+      if (index === 0) {
+        // 蛇頭 (較亮綠色 + 眼睛)
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#2ed573';
+        ctx.fill();
+
+        // 依據移動方向算出兩隻眼睛的位置
+        let eye1X = cx, eye1Y = cy, eye2X = cx, eye2Y = cy;
+        const offset = radius * 0.45;
+        const front = radius * 0.35;
+
+        if (dx === 1) { // 向右
+          eye1X = cx + front; eye1Y = cy - offset;
+          eye2X = cx + front; eye2Y = cy + offset;
+        } else if (dx === -1) { // 向左
+          eye1X = cx - front; eye1Y = cy - offset;
+          eye2X = cx - front; eye2Y = cy + offset;
+        } else if (dy === -1) { // 向上
+          eye1X = cx - offset; eye1Y = cy - front;
+          eye2X = cx + offset; eye2Y = cy - front;
+        } else if (dy === 1) { // 向下
+          eye1X = cx - offset; eye1Y = cy + front;
+          eye2X = cx + offset; eye2Y = cy + front;
+        }
+
+        // 眼白
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(eye1X, eye1Y, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(eye2X, eye2Y, 3, 0, Math.PI * 2); ctx.fill();
+
+        // 瞳孔 (黑色)
+        ctx.fillStyle = '#000000';
+        ctx.beginPath(); ctx.arc(eye1X, eye1Y, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(eye2X, eye2Y, 1.5, 0, Math.PI * 2); ctx.fill();
+
+      } else {
+        // 蛇身 (漸層節點感)
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.85, 0, Math.PI * 2);
+        ctx.fillStyle = index % 2 === 0 ? '#26af5f' : '#1e90ff'; // 青綠與冰藍交替
+        ctx.fillStyle = '#26af5f';
+        ctx.fill();
+      }
+    }
+
+    function handleKeyPress(e) {
+      if (e.code === 'Space') {
+        togglePause();
+        return;
+      }
+      switch (e.key) {
+        case 'ArrowUp': case 'w': case 'W': setDirection('UP'); break;
+        case 'ArrowDown': case 's': case 'S': setDirection('DOWN'); break;
+        case 'ArrowLeft': case 'a': case 'A': setDirection('LEFT'); break;
+        case 'ArrowRight': case 'd': case 'D': setDirection('RIGHT'); break;
+      }
+    }
+
+    function setDirection(dir) {
+      if (dir === 'UP' && dy === 0) { nextDx = 0; nextDy = -1; }
+      if (dir === 'DOWN' && dy === 0) { nextDx = 0; nextDy = 1; }
+      if (dir === 'LEFT' && dx === 0) { nextDx = -1; nextDy = 0; }
+      if (dir === 'RIGHT' && dx === 0) { nextDx = 1; nextDy = 0; }
+    }
+
+    function togglePause() {
+      if (isGameOver) return;
+      isPaused = !isPaused;
+      pauseBtn.innerText = isPaused ? '繼續 (Space)' : '暫停 (Space)';
+    }
+
+    function handleGameOver() {
+      isGameOver = true;
+      clearInterval(gameInterval);
+
+      // 新增歷史紀錄
+      const now = new Date();
+      const timeStr = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      history.unshift({ score: score, time: timeStr });
+      
+      saveLocalStorage();
+      renderHistoryUI();
+
+      // 繪製 Game Over 覆蓋層
+      ctx.fillStyle = 'rgba(17, 17, 27, 0.85)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ff4757';
+      ctx.font = 'bold 28px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 15);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '16px Segoe UI';
+      ctx.fillText(`最終得分: ${score}`, canvas.width / 2, canvas.height / 2 + 15);
+      ctx.font = '14px Segoe UI';
+      ctx.fillStyle = '#a6adc8';
+      ctx.fillText('按「重新開始」或「Space」重新開局', canvas.width / 2, canvas.height / 2 + 45);
+    }
+
+    function renderHistoryUI() {
+      if (history.length === 0) {
+        historyListEl.innerHTML = '<li class="history-item">尚無對局紀錄</li>';
+        return;
+      }
+      historyListEl.innerHTML = history.map((item, idx) => `
+        <li class="history-item">
+          <span>#${idx+1} ${item.time}</span>
+          <span style="font-weight:bold; color:#2ed573;">${item.score} 分</span>
+        </li>
+      `).join('');
+    }
+
+    function clearData() {
+      if (confirm("確定要清除所有最高分與歷史紀錄嗎？")) {
+        localStorage.removeItem(STORAGE_KEY);
+        highScore = 0;
+        history = [];
+        highScoreEl.innerText = 0;
+        renderHistoryUI();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
